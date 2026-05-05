@@ -6,6 +6,13 @@ import os
 import csv
 from datetime import datetime
 
+"""Приложение для выдачи экзаменационных билетов.
+
+Каждый файл в папке `tickets/` должен содержать первую строку с названием дисциплины,
+а билеты внутри файла разделяются строками, начинающимися с `===`. также можно использовать `*` в начале строки для выделения вопросов жирным шрифтом.
+Результат выдачи сохраняется в `ticket_log.csv`.
+"""
+
 # ===== НАСТРОЙКИ =====
 TICKETS_DIR = "tickets"  # папка с билетами
 WAIT_TIME_MS = 3500
@@ -14,6 +21,16 @@ END_DELAY = 350
 
 
 def load_tickets_from_dir(directory):
+    """Загружает билеты из текстовых файлов указанной директории.
+
+    Ожидает, что каждый файл содержит:
+    - первую строку с названием дисциплины
+    - разделитель билетов "==="
+    - строки с вопросами или содержимым билета
+
+    Возвращает словарь, где ключ — дисциплина, а значение — список билетов.
+    """
+
     tickets_by_subject = {}
 
     if not os.path.exists(directory):
@@ -58,6 +75,8 @@ def load_tickets_from_dir(directory):
 
 
 class TicketApp:
+    """GUI-приложение для выбора дисциплины и выдачи случайных экзаменационных билетов."""
+
     def __init__(self, root):
         self.root = root
         self.root.title("Экзаменационные билеты")
@@ -66,7 +85,6 @@ class TicketApp:
         self.tickets_by_subject = load_tickets_from_dir(TICKETS_DIR)
         self.selected_subject = tk.StringVar()
 
-        # ===== Выбор дисциплины =====
         self.subject_combo = ttk.Combobox(
             root,
             textvariable=self.selected_subject,
@@ -114,6 +132,7 @@ class TicketApp:
         self.current_delay = START_DELAY
 
     def start_animation(self):
+        """Запускает анимацию выбора билета и блокирует кнопку до окончания процесса."""
         subject = self.selected_subject.get()
         if not subject or subject not in self.tickets_by_subject:
             messagebox.showwarning("Внимание", "Выберите дисциплину")
@@ -126,6 +145,7 @@ class TicketApp:
         self.animate()
 
     def animate(self):
+        """Выполняет визуальную имитацию выбора билета с прогрессом времени."""
         elapsed = (time.time() - self.start_time) * 1000
 
         if elapsed >= WAIT_TIME_MS:
@@ -148,6 +168,7 @@ class TicketApp:
         self.root.after(self.current_delay, self.animate)
 
     def show_ticket(self):
+        """Отображает выбранный билет и сохраняет запись о выдаче."""
         ticket = random.choice(self.tickets)
 
         self.save_student_ticket(ticket[0])
@@ -171,6 +192,7 @@ class TicketApp:
         self.button.config(state="normal")
 
     def save_student_ticket(self, ticket_name):
+        """Сохраняет информацию о выданном билете в CSV-файл логов."""
         entry_value = self.entry.get()
         combo_value = self.selected_subject.get()
         now = datetime.now()
