@@ -80,56 +80,114 @@ class TicketApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Экзаменационные билеты")
-        self.root.geometry("700x800")
+        self.root.geometry("600x700")
+        self.root.resizable(True, True)
 
         self.tickets_by_subject = load_tickets_from_dir(TICKETS_DIR)
         self.selected_subject = tk.StringVar()
 
+        # Создаем фреймы для организации компоновки
+        self.header_frame = tk.Frame(root, bg="#f0f0f0", height=40)
+        self.header_frame.pack(fill="x", side="top")
+        self.header_frame.pack_propagate(False)
+
+        self.selection_frame = tk.Frame(root, padx=15, pady=10)
+        self.selection_frame.pack(fill="x")
+
+        self.button_frame = tk.Frame(root, pady=5)
+        self.button_frame.pack()
+
+        self.display_frame = tk.Frame(root, padx=15, pady=5)
+        self.display_frame.pack(fill="both", expand=True)
+
+        # Заголовок
+        self.title_label = tk.Label(
+            self.header_frame,
+            text="🎓 Экзаменационные билеты",
+            font=("Arial", 14, "bold"),
+            bg="#f0f0f0",
+            fg="#333"
+        )
+        self.title_label.pack(expand=True)
+
+        # Выбор дисциплины
+        self.subject_label = tk.Label(
+            self.selection_frame,
+            text="Дисциплина:",
+            font=("Arial", 11)
+        )
+        self.subject_label.grid(row=0, column=0, sticky="w", pady=(0, 5))
+
         self.subject_combo = ttk.Combobox(
-            root,
+            self.selection_frame,
             textvariable=self.selected_subject,
             values=list(self.tickets_by_subject.keys()),
             state="readonly",
-            font=("Arial", 12)
+            font=("Arial", 11),
+            width=35
         )
-        self.subject_combo.pack(pady=10)
-        if self.tickets_by_subject:
-            self.subject_combo.current(0)
+        self.subject_combo.grid(row=1, column=0, sticky="ew", pady=(0, 10))
 
-        self.entry_frame = tk.Frame(root)
-        self.entry_frame.pack(pady=10)
-
-        self.entry_label = ttk.Label(
-            self.entry_frame,
-            text="Студент: ",
-            font=("Arial", 12)
+        # Ввод имени студента
+        self.student_label = tk.Label(
+            self.selection_frame,
+            text="Студент:",
+            font=("Arial", 11)
         )
-        self.entry_label.pack(side="left", padx=(0, 8))
+        self.student_label.grid(row=2, column=0, sticky="w", pady=(0, 5))
 
         self.entry = ttk.Entry(
-            self.entry_frame,
-            width=42
+            self.selection_frame,
+            font=("Arial", 11),
+            width=37
         )
-        self.entry.pack(side="left")
+        self.entry.grid(row=3, column=0, sticky="ew", pady=(0, 10))
 
+        # Кнопка выдачи билета
         self.button = tk.Button(
-            root,
+            self.button_frame,
             text="🎟 Выдать билет",
-            font=("Arial", 14),
+            font=("Arial", 12, "bold"),
+            bg="#4CAF50",
+            fg="white",
+            padx=15,
+            pady=8,
             command=self.start_animation
         )
-        self.button.pack(pady=10)
+        self.button.pack(side="left", padx=(0, 10))
 
-        self.text = tk.Text(
-            root,
-            wrap="word",
-            font=("Arial", 13),
-            state="disabled"
+        # Кнопка просмотра выданных билетов
+        self.view_button = tk.Button(
+            self.button_frame,
+            text="📋 Выданные билеты",
+            font=("Arial", 12, "bold"),
+            bg="#2196F3",
+            fg="white",
+            padx=15,
+            pady=8,
+            command=self.show_issued_tickets
         )
-        self.text.pack(expand=True, fill="both", padx=10, pady=10)
+        self.view_button.pack(side="left")
+
+        # Область отображения билета
+        self.text = tk.Text(
+            self.display_frame,
+            wrap="word",
+            font=("Arial", 11),
+            state="disabled",
+            padx=5,
+            pady=5
+        )
+        self.text.pack(fill="both", expand=True)
+
+        # Настраиваем grid для selection_frame
+        self.selection_frame.columnconfigure(0, weight=1)
 
         self.start_time = None
         self.current_delay = START_DELAY
+
+        if self.tickets_by_subject:
+            self.subject_combo.current(0)
 
     def start_animation(self):
         """Запускает анимацию выбора билета и блокирует кнопку до окончания процесса."""
@@ -154,7 +212,7 @@ class TicketApp:
 
         ticket_name = random.choice(self.tickets)[0]
         
-        self.text.tag_configure('bold', font=('Arial', 13, 'bold'))
+        self.text.tag_configure('bold', font=('Arial', 11, 'bold'))
 
         self.text.config(state="normal")
         self.text.delete("1.0", tk.END)
@@ -173,7 +231,7 @@ class TicketApp:
 
         self.save_student_ticket(ticket[0])
 
-        self.text.tag_configure('bold', font=('Arial', 13, 'bold'))
+        self.text.tag_configure('bold', font=('Arial', 11, 'bold'))
 
         self.text.config(state="normal")
         self.text.delete("1.0", tk.END)
@@ -190,6 +248,10 @@ class TicketApp:
 
         self.text.config(state="disabled")
         self.button.config(state="normal")
+
+        # Обновляем окно выданных билетов, если оно открыто
+        if hasattr(self, 'issued_window') and self.issued_window.winfo_exists():
+            self.update_issued_window()
 
     def save_student_ticket(self, ticket_name):
         """Сохраняет информацию о выданном билете в CSV-файл логов."""
@@ -216,6 +278,66 @@ class TicketApp:
                 })
         except Exception as e:
             messagebox.showerror("Ошибка", f"Не удалось записать файл логов\n{e}")
+
+
+    def show_issued_tickets(self):
+        """Открывает окно с просмотром всех выданных билетов."""
+        log_path = os.path.join(os.getcwd(), "ticket_log.csv")
+        if not os.path.exists(log_path):
+            messagebox.showinfo("Информация", "Лог выданных билетов пуст.")
+            return
+
+        # Проверяем, если окно уже открыто
+        if hasattr(self, 'issued_window') and self.issued_window.winfo_exists():
+            self.issued_window.lift()  # Поднимаем окно наверх
+            self.update_issued_window()
+            return
+
+        # Создаем новое окно
+        self.issued_window = tk.Toplevel(self.root)
+        self.issued_window.title("Выданные билеты")
+        self.issued_window.geometry("800x600")
+
+        # Фрейм для Treeview
+        frame = tk.Frame(self.issued_window)
+        frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+        # Создаем Treeview
+        columns = ("Студент", "Дисциплина", "Билет", "Дата выдачи", "Время выдачи")
+        self.tree = ttk.Treeview(frame, columns=columns, show="headings", height=20)
+
+        # Настраиваем колонки
+        for col in columns:
+            self.tree.heading(col, text=col)
+            self.tree.column(col, width=150, anchor="center")
+
+        # Добавляем скроллбар
+        scrollbar = ttk.Scrollbar(frame, orient="vertical", command=self.tree.yview)
+        self.tree.configure(yscrollcommand=scrollbar.set)
+        scrollbar.pack(side="right", fill="y")
+        self.tree.pack(fill="both", expand=True)
+
+        # Загружаем данные из CSV
+        self.update_issued_window()
+
+
+    def update_issued_window(self):
+        """Обновляет таблицу выданных билетов."""
+        if not hasattr(self, 'tree'):
+            return
+
+        # Очищаем таблицу
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+
+        log_path = os.path.join(os.getcwd(), "ticket_log.csv")
+        try:
+            with open(log_path, "r", encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    self.tree.insert("", "end", values=(row["Студент"], row["Дисциплина"], row["Билет"], row["Дата выдачи"], row["Время выдачи"]))
+        except Exception as e:
+            messagebox.showerror("Ошибка", f"Не удалось прочитать лог файл\n{e}")
 
 
 if __name__ == "__main__":
